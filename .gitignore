@@ -1,0 +1,32 @@
+PRD*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual env
+.venv/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+
+# --- MATLAB (keep source .m and .mlx) ---
+# Backups / autosaves / compiled artifacts
+*~
+*.asv
+*.autosave
+*.mex*
+slprj/
