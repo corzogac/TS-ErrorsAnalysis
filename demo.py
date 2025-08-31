@@ -14,6 +14,8 @@ from src.plots import plot_ts_error_panel
 
 
 rng = np.random.default_rng(0)
+
+
 t = np.linspace(0, 6, 200)
 T = np.sin(t) + 0.10 * rng.normal(size=t.size)
 P = T + 0.15 * rng.normal(size=t.size)
