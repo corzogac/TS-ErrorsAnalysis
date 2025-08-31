@@ -8,25 +8,25 @@
 # License : MIT
 # SPDX-License-Identifier: MIT
 # ---------------------------------------------------------------------------
+import numpy as np, matplotlib.pyplot as plt
+from src.errors import compute_error_metrics
+from src.plots import plot_ts_error_panel
 
-from pathlib import Path
-import numpy as np
 
-# Imports
-from src.Error1 import compute_error_metrics
-from src.plots import plot_time_series, plot_error_series
-
-# Data (replace with your series)
 rng = np.random.default_rng(0)
 t = np.linspace(0, 6, 200)
 T = np.sin(t) + 0.10 * rng.normal(size=t.size)
 P = T + 0.15 * rng.normal(size=t.size)
 
-# 1) analysis
-E = compute_error_metrics(P, T)
-for k in ["RMSE","NSC","Cor","NRMSE","MAE","PERS","RMSEN","NRMSEN","MARE","Po","Pu"]:
-    print(f"{k:6s}: {E[k]:.6f}")
+R = compute_error_metrics(P, T)  # pass the metrics object
+print(sorted(R.to_dict().keys()))
 
-# 2) plots (separate)
-plot_time_series(T, P, title="Demo — Time Series")
-plot_error_series(E["Er"], title=f"Demo — Error (NRMSE={E['NRMSE']:.2f}%)")
+plot_ts_error_panel(
+    T, P, R=R,
+    title="Demo — Hydrological Skill Panel",
+    plot_table1=True,     # error classes
+    plot_table2=True,     # metrics summary
+    legend_fontsize=8,    # smaller legends
+    sigma_k=1.0           # band = ±1σ (change to 2.0 for ±2σ)
+)
+plt.show()
