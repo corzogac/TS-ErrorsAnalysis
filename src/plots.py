@@ -121,9 +121,16 @@ def plot_ts_error_panel(
     any_table = plot_table1 or plot_table2
     if any_table:
         fig = plt.figure(figsize=(12, 7))
-        gs = GridSpec(2, 2, figure=fig, width_ratios=[3.0, 1.35], height_ratios=[2.0, 1.4], hspace=0.05, wspace=0.25)
+        hspace_val = 0.15  # was 0.05
+        gs = GridSpec(2, 2, figure=fig, width_ratios=[3.0, 1.35], height_ratios=[2.0, 1.4], hspace=hspace_val, wspace=0.25)
         ax_ts  = fig.add_subplot(gs[0, 0])
         ax_err = fig.add_subplot(gs[1, 0], sharex=ax_ts)
+        # prevent tick-label and spine overlap between the two rows
+        ax_ts.tick_params(labelbottom=False)       # hide top plot x tick labels
+        #ax_ts.spines['bottom'].set_visible(False)  # remove bottom spine of top plot
+        #ax_err.spines['top'].set_visible(False)    # remove top spine of bottom plot
+        #ax_err.set_xlabel("Time", labelpad=6)      # a little extra room for labels
+
         if plot_table1 and plot_table2:
             ax_tbl2 = fig.add_subplot(gs[0, 1]); ax_tbl1 = fig.add_subplot(gs[1, 1])
         elif plot_table2:
