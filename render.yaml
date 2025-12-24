@@ -1,0 +1,23 @@
+services:
+  # Backend API
+  - type: web
+    name: ts-errors-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt -r api/requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ts-errors-db
+          property: connectionString
+    healthCheckPath: /health
+
+  # PostgreSQL Database
+databases:
+  - name: ts-errors-db
+    plan: free
+    databaseName: ts_errors
+    user: ts_errors_user
