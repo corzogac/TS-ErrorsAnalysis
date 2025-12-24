@@ -6,17 +6,21 @@
 # License : MIT
 # SPDX-License-Identifier: MIT
 # ---------------------------------------------------------------------------
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from sqlalchemy.orm import Session
 import numpy as np
 import sys
 from pathlib import Path
+import uuid
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.errors import compute_error_metrics
+from .database import get_db
+from . import stats as stats_module
 
 app = FastAPI(
     title="TS-ErrorsAnalysis API",
@@ -43,12 +47,17 @@ class TimeSeriesInput(BaseModel):
     """Input model for time series analysis"""
     predicted: List[float] = Field(..., description="Predicted values", min_length=2)
     target: List[float] = Field(..., description="Target/observed values", min_length=2)
+    user_id: Optional[str] = Field(None, description="Optional user ID for tracking")
+    analysis_name: Optional[str] = Field(None, description="Optional name for this analysis")
+    notes: Optional[str] = Field(None, description="Optional notes")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "predicted": [1.0, 2.5, 3.2, 4.1, 5.0],
-                "target": [1.2, 2.3, 3.5, 3.9, 4.8]
+                "target": [1.2, 2.3, 3.5, 3.9, 4.8],
+                "user_id": "user123",
+                "analysis_name": "River discharge comparison"
             }
         }
 
@@ -119,7 +128,11 @@ async def health_check():
     }
 
 @app.post("/api/v1/analyze", response_model=ErrorMetricsResponse)
-async def analyze_time_series(data: TimeSeriesInput):
+async def analyze_time_series(
+    data: TimeSeriesInput,
+    db: Session = Depends(get_db),
+    x_session_id: Optional[str] = Header(None)
+):
     """
     Analyze time series: compute error metrics for predicted vs target values
 
@@ -129,6 +142,8 @@ async def analyze_time_series(data: TimeSeriesInput):
     - Index of Agreement (d, d1)
     - Persistence metrics
     - Error series and proportions
+
+    Automatically tracks usage statistics.
     """
     try:
         # Convert to numpy arrays
@@ -174,6 +189,19 @@ async def analyze_time_series(data: TimeSeriesInput):
             "Po": result.Po,
             "Pu": result.Pu
         }
+
+        # Log analysis to database
+        session_id = x_session_id or str(uuid.uuid4())
+        stats_module.get_or_create_session(db, session_id, data.user_id)
+        stats_module.log_analysis(
+            db=db,
+            metrics=response,
+            n_points=len(P),
+            session_id=session_id,
+            user_id=data.user_id,
+            analysis_name=data.analysis_name,
+            notes=data.notes
+        )
 
         return response
 
@@ -236,6 +264,33 @@ async def metrics_info():
             "nan_handling": "Pairwise deletion, requires ≥2 valid pairs"
         }
     }
+
+@app.get("/api/v1/stats/user/{user_id}")
+async def get_user_statistics(user_id: str, db: Session = Depends(get_db)):
+    """Get statistics for a specific user"""
+    return stats_module.get_user_stats(db, user_id)
+
+@app.get("/api/v1/stats/system")
+async def get_system_statistics(db: Session = Depends(get_db)):
+    """Get overall system statistics"""
+    return stats_module.get_system_stats(db)
+
+@app.get("/api/v1/history")
+async def get_analysis_history(
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    Get analysis history
+
+    Query parameters:
+    - user_id: Filter by user ID
+    - session_id: Filter by session ID
+    - limit: Max number of records (default 50)
+    """
+    return stats_module.get_analysis_history(db, user_id, session_id, limit)
 
 if __name__ == "__main__":
     import uvicorn
