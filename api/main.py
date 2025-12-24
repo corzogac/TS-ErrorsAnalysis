@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.errors import compute_error_metrics
 from .database import get_db
 from . import stats as stats_module
+from . import timeseries as ts_module
 
 app = FastAPI(
     title="TS-ErrorsAnalysis API",
@@ -291,6 +292,217 @@ async def get_analysis_history(
     - limit: Max number of records (default 50)
     """
     return stats_module.get_analysis_history(db, user_id, session_id, limit)
+
+# ============================================================================
+# TIME SERIES PROCESSING ENDPOINTS
+# ============================================================================
+
+class TimeSeriesData(BaseModel):
+    """Time series data input"""
+    values: List[float] = Field(..., description="Time series values")
+    indices: Optional[List[float]] = Field(None, description="Optional time indices")
+
+class InterpolateRequest(BaseModel):
+    """Spline interpolation request"""
+    values: List[float]
+    indices: Optional[List[float]] = None
+    kind: str = Field('cubic', description="Interpolation kind: linear, quadratic, cubic")
+    num_points: Optional[int] = Field(None, description="Number of output points")
+
+class SmoothRequest(BaseModel):
+    """Data smoothing request"""
+    values: List[float]
+    method: str = Field('moving_average', description="Smoothing method")
+    window_size: int = Field(5, description="Window size for smoothing")
+    polyorder: Optional[int] = Field(2, description="Polynomial order for Savitzky-Golay")
+    alpha: Optional[float] = Field(0.3, description="Alpha for exponential smoothing")
+
+class FillMissingRequest(BaseModel):
+    """Fill missing data request"""
+    values: List[float]
+    method: str = Field('linear', description="Fill method: linear, forward, backward, mean, median")
+    limit: Optional[int] = Field(None, description="Max consecutive NaNs to fill")
+
+class DecomposeRequest(BaseModel):
+    """Trend decomposition request"""
+    values: List[float]
+    period: int = Field(12, description="Seasonal period")
+    model: str = Field('additive', description="Model type: additive or multiplicative")
+
+class OutlierRequest(BaseModel):
+    """Outlier detection request"""
+    values: List[float]
+    method: str = Field('zscore', description="Detection method: zscore or iqr")
+    threshold: float = Field(3.0, description="Threshold for detection")
+
+class ResampleRequest(BaseModel):
+    """Resampling request"""
+    values: List[float]
+    indices: Optional[List[float]] = None
+    target_points: int = Field(..., description="Target number of points")
+    method: str = Field('linear', description="Interpolation method")
+
+@app.post("/api/v1/timeseries/interpolate")
+async def interpolate_timeseries(request: InterpolateRequest):
+    """
+    Perform spline interpolation on time series data
+
+    Returns interpolated x and y values
+    """
+    try:
+        values = np.array(request.values)
+        indices = np.array(request.indices) if request.indices else np.arange(len(values))
+
+        x_new, y_new = ts_module.spline_interpolate(
+            indices, values,
+            kind=request.kind,
+            num_points=request.num_points
+        )
+
+        return {
+            "indices": x_new.tolist(),
+            "values": y_new.tolist(),
+            "method": request.kind,
+            "original_points": len(values),
+            "interpolated_points": len(y_new)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/timeseries/smooth")
+async def smooth_timeseries(request: SmoothRequest):
+    """
+    Smooth time series data using various methods
+
+    Methods: moving_average, savitzky_golay, exponential
+    """
+    try:
+        values = np.array(request.values)
+
+        kwargs = {}
+        if request.method == 'savitzky_golay':
+            kwargs['polyorder'] = request.polyorder
+        elif request.method == 'exponential':
+            kwargs['alpha'] = request.alpha
+
+        smoothed = ts_module.smooth_data(
+            values,
+            method=request.method,
+            window_size=request.window_size,
+            **kwargs
+        )
+
+        return {
+            "original": values.tolist(),
+            "smoothed": smoothed.tolist(),
+            "method": request.method,
+            "window_size": request.window_size
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/timeseries/fill-missing")
+async def fill_missing_data(request: FillMissingRequest):
+    """
+    Fill missing (NaN) values in time series
+
+    Methods: linear, forward, backward, mean, median
+    """
+    try:
+        values = np.array(request.values, dtype=float)
+
+        filled, mask = ts_module.fill_missing_data(
+            values,
+            method=request.method,
+            limit=request.limit
+        )
+
+        return {
+            "original": values.tolist(),
+            "filled": filled.tolist(),
+            "filled_indices": np.where(mask)[0].tolist(),
+            "num_filled": int(np.sum(mask)),
+            "method": request.method
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/timeseries/decompose")
+async def decompose_trend(request: DecomposeRequest):
+    """
+    Decompose time series into trend, seasonal, and residual components
+    """
+    try:
+        values = np.array(request.values)
+
+        components = ts_module.decompose_trend(
+            values,
+            period=request.period,
+            model=request.model
+        )
+
+        return {
+            "original": components['original'].tolist(),
+            "trend": components['trend'].tolist(),
+            "seasonal": components['seasonal'].tolist(),
+            "residual": components['residual'].tolist(),
+            "period": request.period,
+            "model": request.model
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/timeseries/detect-outliers")
+async def detect_outliers(request: OutlierRequest):
+    """
+    Detect outliers in time series data
+
+    Methods: zscore, iqr
+    """
+    try:
+        values = np.array(request.values)
+
+        outliers = ts_module.detect_outliers(
+            values,
+            method=request.method,
+            threshold=request.threshold
+        )
+
+        return {
+            "values": values.tolist(),
+            "is_outlier": outliers.tolist(),
+            "outlier_indices": np.where(outliers)[0].tolist(),
+            "num_outliers": int(np.sum(outliers)),
+            "method": request.method,
+            "threshold": request.threshold
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/timeseries/resample")
+async def resample_timeseries(request: ResampleRequest):
+    """
+    Resample time series to a different number of points
+    """
+    try:
+        values = np.array(request.values)
+        indices = np.array(request.indices) if request.indices else np.arange(len(values))
+
+        x_new, y_new = ts_module.resample_timeseries(
+            indices, values,
+            target_points=request.target_points,
+            method=request.method
+        )
+
+        return {
+            "original_points": len(values),
+            "resampled_points": len(y_new),
+            "indices": x_new.tolist(),
+            "values": y_new.tolist(),
+            "method": request.method
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

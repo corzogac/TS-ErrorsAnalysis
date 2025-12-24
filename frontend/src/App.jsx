@@ -1,9 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import { BarChart3, Home, History, TrendingUp } from 'lucide-react'
+import { BarChart3, Home, History, TrendingUp, Wand2 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Analyze from './pages/Analyze'
 import HistoryPage from './pages/HistoryPage'
 import Stats from './pages/Stats'
+import Tools from './pages/Tools'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
               <nav className="flex space-x-4">
                 <NavLink to="/" icon={<Home size={18} />}>Dashboard</NavLink>
                 <NavLink to="/analyze" icon={<TrendingUp size={18} />}>Analyze</NavLink>
+                <NavLink to="/tools" icon={<Wand2 size={18} />}>Tools</NavLink>
                 <NavLink to="/history" icon={<History size={18} />}>History</NavLink>
                 <NavLink to="/stats" icon={<BarChart3 size={18} />}>Stats</NavLink>
               </nav>
@@ -35,6 +37,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/analyze" element={<Analyze />} />
+            <Route path="/tools" element={<Tools />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/stats" element={<Stats />} />
           </Routes>
