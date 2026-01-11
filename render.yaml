@@ -1,0 +1,22 @@
+services:
+  # Backend API
+  - type: web
+    name: ts-errors-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && pip install -r api/requirements.txt
+    startCommand: python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        value: sqlite:///./data/ts_analysis.db
+    healthCheckPath: /health
+
+# Note: PostgreSQL database is optional
+# Uncomment below to add managed PostgreSQL (requires upgrade from free tier)
+# databases:
+#   - name: ts-errors-db
+#     plan: starter  # Paid tier required for PostgreSQL
+#     databaseName: ts_errors
+#     user: ts_errors_user

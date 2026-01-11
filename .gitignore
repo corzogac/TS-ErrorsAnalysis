@@ -1,5 +1,11 @@
 PRD*
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+ts_analysis.db
+
 # --- Python ---
 __pycache__/
 *.py[cod]

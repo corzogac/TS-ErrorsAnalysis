@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ts-errors-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./ts_analysis.db
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount for development - hot reload
+      - ./src:/app/src
+      - ./api:/app/api
+      # Persist database
+      - ./data:/app/data
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Frontend will be added in Stage 4
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: ts-errors-frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - api
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:8000
+
+volumes:
+  data:
+    driver: local
+
+networks:
+  default:
+    name: ts-errors-network
