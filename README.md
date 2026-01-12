@@ -35,9 +35,33 @@
 - **Outlier detection**: Z-score and IQR methods
 - **Resampling**: Change sampling rate with interpolation
 
+### 🎯 Batch Processing & Comparison (Stage 6)
+- **Batch analyze**: Process multiple time series at once
+- **Export results**: Download as CSV or JSON
+- **Side-by-side comparison**: Rank models across all metrics
+- **Visual comparison**: Charts comparing multiple models
+- **Automatic statistics**: Min, max, mean, std across all runs
+
+### 📊 Advanced Visualizations (Stage 7)
+- **3D Error Surface**: Interactive 3D plot of error landscape
+- **Residual Analysis**: 4-panel diagnostic plots
+- **Q-Q Plot**: Normality assessment with statistics
+- **Autocorrelation**: ACF/PACF plots for temporal dependencies
+- **Error Distribution**: Histogram with fitted normal curve
+- **Powered by Plotly**: Fully interactive, zoomable, exportable
+
+### ⚡ Performance Optimizations (Stage 8)
+- **Smart caching**: TTL-based cache with optional Redis backend
+- **Streaming uploads**: Handle large CSV files efficiently
+- **Database indexes**: Optimized queries for history/stats
+- **Health monitoring**: Cache and database health checks
+- **Scalable architecture**: Ready for high-traffic deployments
+
 ### Modern Web Interface
 - **Dashboard**: System overview with statistics
 - **Analyze**: Upload data, get instant results with charts
+- **Batch**: Compare multiple models side-by-side
+- **Visualize**: Advanced diagnostic plots (3D, residuals, ACF/PACF)
 - **Tools**: Interactive time series processing
 - **History**: Browse past analyses
 - **Stats**: User and system statistics
@@ -48,6 +72,8 @@
 - **Database tracking** of all analyses (SQLite/PostgreSQL)
 - **Session management** with user statistics
 - **CORS enabled** for frontend integration
+- **Caching layer** for improved performance
+- **Streaming file uploads** for large datasets
 
 ---
 
@@ -118,19 +144,30 @@ curl http://localhost:8000/api/v1/stats/system
 
 **Backend**:
 - FastAPI (Python 3.11+)
-- SQLAlchemy (ORM)
+- SQLAlchemy (ORM with composite indexes)
 - NumPy, SciPy (numerical computing)
+- Plotly (advanced visualizations)
+- Statsmodels (ACF/PACF analysis)
+- Cachetools (TTL caching)
 - Pydantic (validation)
 
 **Frontend**:
 - React 18 + Vite
 - Tailwind CSS
-- Recharts (visualization)
+- Recharts (basic charts)
+- Plotly.js + react-plotly.js (interactive 3D plots)
 - Axios (API client)
 
 **Database**:
 - PostgreSQL (production)
 - SQLite (development)
+- Composite indexes for performance
+
+**Performance**:
+- In-memory TTL cache
+- Optional Redis backend
+- Streaming file uploads
+- Database query optimization
 
 **Deployment**:
 - Docker + docker-compose
@@ -169,13 +206,17 @@ python test_all_stages.py
 ```
 TS-ErrorsAnalysis/
 ├── api/                    # FastAPI backend
-│   ├── main.py            # API endpoints
-│   ├── database.py        # Database models
+│   ├── main.py            # API endpoints (all stages)
+│   ├── database.py        # Database models with indexes
 │   ├── stats.py           # Statistics functions
-│   └── timeseries.py      # Time series processing
+│   ├── timeseries.py      # Time series processing
+│   ├── batch.py           # Batch processing & export (Stage 6)
+│   ├── visualizations.py  # Advanced Plotly charts (Stage 7)
+│   ├── cache.py           # Caching layer (Stage 8)
+│   └── upload.py          # Streaming file uploads (Stage 8)
 ├── frontend/              # React frontend
 │   ├── src/
-│   │   ├── pages/        # Dashboard, Analyze, Tools, History, Stats
+│   │   ├── pages/        # Dashboard, Analyze, Batch, Visualize, Tools, History, Stats
 │   │   ├── services/     # API client
 │   │   └── App.jsx       # Main app component
 │   └── package.json

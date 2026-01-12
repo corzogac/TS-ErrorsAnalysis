@@ -1,9 +1,9 @@
 # ---------------------------------------------------------------------------
 # File    : api/database.py
-# Purpose : Database models and session management
+# Purpose : Database models and session management (with Stage 8 optimizations)
 # License : MIT
 # ---------------------------------------------------------------------------
-from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, JSON, Text
+from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, JSON, Text, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -48,6 +48,13 @@ class AnalysisRecord(Base):
     user_id = Column(String, index=True, nullable=True)
     analysis_name = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+
+    # Composite indexes for common query patterns (Stage 8 optimization)
+    __table_args__ = (
+        Index('idx_user_timestamp', 'user_id', 'timestamp'),
+        Index('idx_session_timestamp', 'session_id', 'timestamp'),
+        Index('idx_user_session', 'user_id', 'session_id'),
+    )
 
 class UserSession(Base):
     """Track user sessions"""
