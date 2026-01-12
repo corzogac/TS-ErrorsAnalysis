@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import { Upload, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Upload, Download, Save, FolderOpen } from 'lucide-react'
 import { analysisApi } from '../services/api'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
+const STORAGE_KEY = 'ts-analysis-projects'
 
 export default function Analyze() {
   const [predicted, setPredicted] = useState('')
@@ -11,6 +13,108 @@ export default function Analyze() {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [savedProjects, setSavedProjects] = useState([])
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showLoadDialog, setShowLoadDialog] = useState(false)
+
+  // Load saved projects on mount
+  useEffect(() => {
+    loadSavedProjects()
+  }, [])
+
+  // Auto-save current state to localStorage
+  useEffect(() => {
+    const autoSaveTimer = setTimeout(() => {
+      if (predicted || target || analysisName) {
+        localStorage.setItem('ts-analysis-autosave', JSON.stringify({
+          predicted,
+          target,
+          userId,
+          analysisName,
+          timestamp: new Date().toISOString()
+        }))
+      }
+    }, 1000)
+
+    return () => clearTimeout(autoSaveTimer)
+  }, [predicted, target, userId, analysisName])
+
+  const loadSavedProjects = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        setSavedProjects(JSON.parse(stored))
+      }
+    } catch (err) {
+      console.error('Failed to load projects:', err)
+    }
+  }
+
+  const saveCurrentProject = (projectName) => {
+    if (!projectName.trim()) {
+      alert('Please enter a project name')
+      return
+    }
+
+    const project = {
+      name: projectName,
+      predicted,
+      target,
+      userId,
+      analysisName,
+      savedAt: new Date().toISOString(),
+      results
+    }
+
+    const projects = [...savedProjects]
+    const existingIndex = projects.findIndex(p => p.name === projectName)
+
+    if (existingIndex >= 0) {
+      // Update existing
+      projects[existingIndex] = project
+    } else {
+      // Add new
+      projects.push(project)
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+    setSavedProjects(projects)
+    setShowSaveDialog(false)
+    alert(`Project "${projectName}" saved successfully!`)
+  }
+
+  const loadProject = (project) => {
+    setPredicted(project.predicted)
+    setTarget(project.target)
+    setUserId(project.userId || '')
+    setAnalysisName(project.analysisName || '')
+    setResults(project.results || null)
+    setShowLoadDialog(false)
+  }
+
+  const deleteProject = (projectName) => {
+    if (confirm(`Delete project "${projectName}"?`)) {
+      const projects = savedProjects.filter(p => p.name !== projectName)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+      setSavedProjects(projects)
+    }
+  }
+
+  const restoreAutoSave = () => {
+    try {
+      const autosave = localStorage.getItem('ts-analysis-autosave')
+      if (autosave) {
+        const data = JSON.parse(autosave)
+        setPredicted(data.predicted || '')
+        setTarget(data.target || '')
+        setUserId(data.userId || '')
+        setAnalysisName(data.analysisName || '')
+        alert('Auto-saved data restored!')
+      }
+    } catch (err) {
+      alert('No auto-saved data found')
+    }
+  }
 
   const handleAnalyze = async (e) => {
     e.preventDefault()
@@ -61,12 +165,39 @@ export default function Analyze() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h2 className="text-3xl font-bold text-gray-900 mb-8">Analyze Time Series</h2>
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-900">Analyze Time Series</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowLoadDialog(true)}
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <FolderOpen size={18} />
+            Load Project ({savedProjects.length})
+          </button>
+          <button
+            onClick={() => setShowSaveDialog(true)}
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <Save size={18} />
+            Save Project
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Input Form */}
         <div className="card">
-          <h3 className="text-xl font-semibold mb-4">Input Data</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold">Input Data</h3>
+            <button
+              type="button"
+              onClick={restoreAutoSave}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              Restore Auto-Save
+            </button>
+          </div>
           <form onSubmit={handleAnalyze} className="space-y-4">
             <div>
               <label className="label">Predicted Values</label>
@@ -199,6 +330,106 @@ export default function Analyze() {
         <div className="card mt-8">
           <h3 className="text-xl font-semibold mb-4">Visualization</h3>
           <TimeSeriesChart results={results} />
+        </div>
+      )}
+
+      {/* Save Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold mb-4">Save Project</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Save your current work to continue later. You can load it anytime.
+            </p>
+            <input
+              type="text"
+              placeholder="Project name"
+              className="input w-full mb-4"
+              defaultValue={analysisName}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  saveCurrentProject(e.target.value)
+                }
+              }}
+              id="project-name-input"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const name = document.getElementById('project-name-input').value
+                  saveCurrentProject(name)
+                }}
+                className="btn btn-primary flex-1"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="btn btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Load Dialog */}
+      {showLoadDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-4">Load Project</h3>
+
+            {savedProjects.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No saved projects yet.</p>
+                <p className="text-sm mt-2">Save your current work to start building your library!</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedProjects.map((project, idx) => (
+                  <div
+                    key={idx}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 transition"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{project.name}</h4>
+                        <p className="text-xs text-gray-500">
+                          Saved: {new Date(project.savedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => deleteProject(project.name)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="text-sm text-gray-600 mb-3">
+                      <p>Predicted: {project.predicted.substring(0, 50)}{project.predicted.length > 50 ? '...' : ''}</p>
+                      <p>Target: {project.target.substring(0, 50)}{project.target.length > 50 ? '...' : ''}</p>
+                    </div>
+
+                    <button
+                      onClick={() => loadProject(project)}
+                      className="btn btn-primary w-full"
+                    >
+                      Load This Project
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowLoadDialog(false)}
+              className="btn btn-secondary w-full mt-4"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
