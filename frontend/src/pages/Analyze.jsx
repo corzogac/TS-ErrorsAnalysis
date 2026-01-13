@@ -147,9 +147,36 @@ export default function Analyze() {
   }
 
   const loadExample = () => {
-    setPredicted('1.0, 2.5, 3.2, 4.1, 5.0, 3.8, 2.9, 4.5, 5.2, 3.7')
-    setTarget('1.2, 2.3, 3.5, 3.9, 4.8, 4.0, 3.1, 4.3, 5.0, 3.9')
-    setAnalysisName('Example Analysis')
+    // Generate sophisticated Fourier series with 10% Gaussian noise
+    const n = 100 // number of points
+    const t = Array.from({ length: n }, (_, i) => i)
+
+    // True signal: Multi-frequency Fourier series
+    // f(t) = A₁sin(ω₁t) + A₂sin(ω₂t + φ) + A₃cos(ω₃t) + baseline
+    const target = t.map(time => {
+      const t_norm = time / 10 // normalize time
+      return (
+        50 +  // baseline
+        20 * Math.sin(2 * Math.PI * 0.5 * t_norm) +  // primary frequency
+        10 * Math.sin(2 * Math.PI * 1.5 * t_norm + Math.PI / 4) +  // second harmonic
+        5 * Math.cos(2 * Math.PI * 2.5 * t_norm)  // third harmonic
+      )
+    })
+
+    // Predicted: Target + 10% Gaussian noise
+    const std_dev = Math.sqrt(target.reduce((sum, val) => sum + val * val, 0) / n) * 0.1
+    const predicted = target.map(val => {
+      // Box-Muller transform for Gaussian noise
+      const u1 = Math.random()
+      const u2 = Math.random()
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
+      return val + z * std_dev
+    })
+
+    setPredicted(predicted.map(v => v.toFixed(2)).join(', '))
+    setTarget(target.map(v => v.toFixed(2)).join(', '))
+    setAnalysisName('Fourier Series with 10% Gaussian Noise')
+    setUserId('demo-user')
   }
 
   const downloadResults = () => {
